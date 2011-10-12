@@ -1355,7 +1355,6 @@ class HTTP11ClientProtocol(Protocol):
             self._disconnectParser(Failure(reason))
         else:
             self._giveUp(Failure(reason))
-            self.abort()
 
 
     def _disconnectParser(self, reason):

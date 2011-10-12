@@ -659,7 +659,8 @@ class Agent(object):
     """
     _protocol = HTTP11ClientProtocol
     # Increase this limit if the miner can't get work fast enough
-    maxConnections = 2 # RFC 2616: A single-user client SHOULD NOT
+    # This limit must also be increased on slow/unstable internet connections
+    maxConnections = 5 # RFC 2616: A single-user client SHOULD NOT
                        # maintain more than 2 connections with any
                        # server or proxy.
 

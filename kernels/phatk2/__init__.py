@@ -1,5 +1,5 @@
 # Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
-#                       CFSworks <CFSworks@gmail.com>
+#                       CFSworks <CFSworks@gmail.com> and
 #                       Phateus <jesse.moll@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,7 +25,6 @@ import numpy as np
 import os
 import math
 
-from time import clock
 from hashlib import md5
 from struct import pack, unpack
 from twisted.internet import reactor

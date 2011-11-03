@@ -52,7 +52,8 @@ class HTTPBase(object):
 
     def closeConnection(self):
         if self.connection is not None:
-            self.connection.sock.shutdown(socket.SHUT_RDWR)
+            if self.connection.sock is not None:
+                self.connection.sock.shutdown(socket.SHUT_RDWR)
             self.connection.close()
         if self.__response is not None:
                 self.__response.close()

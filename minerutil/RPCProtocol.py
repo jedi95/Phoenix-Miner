@@ -34,6 +34,12 @@ class ServerMessage(Exception): pass
 class HTTPBase(object):
     connection = None
     timeout = None
+    lock = None
+
+    def doRequest(self, *args):
+        if self.lock is None:
+            self.lock = defer.DeferredLock()
+        return self.lock.run(threads.deferToThread, self._doRequest, *args)
 
     def _doRequest(self, url, *args):
         if self.connection is None:
@@ -126,7 +132,7 @@ class RPCPoller(HTTPBase):
         path = self.root.url.path or '/'
         if self.root.url.query:
             path += '?' + self.root.url.query
-        response = yield threads.deferToThread(self._doRequest,
+        response = yield self.doRequest(
             self.root.url,
             'POST',
             path,
@@ -179,7 +185,7 @@ class LongPoller(HTTPBase):
             path = self.url.path or '/'
             if self.url.query:
                 path += '?' + self.url.query
-            d = threads.deferToThread(self._doRequest,
+            d = yield self.doRequest(
                 self.url,
                 'GET',
                 path,

@@ -23,6 +23,7 @@ import urlparse
 import json
 import sys
 import httplib
+import socket
 from twisted.internet import defer, reactor, error, threads
 from twisted.python import failure
 
@@ -39,6 +40,9 @@ class HTTPBase(object):
             self.connection = httplib.HTTPConnection(url.hostname,
                                                      url.port or 80,
                                                      timeout=self.timeout)
+            self.connection.connect()
+            self.connection.sock.setsockopt(socket.SOL_TCP,
+                                            socket.TCP_NODELAY, 1)
         try:
             self.connection.request(*args)
             return self.connection.getresponse()

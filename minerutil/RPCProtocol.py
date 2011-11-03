@@ -57,7 +57,7 @@ class HTTPBase(object):
         try:
             self.connection.request(*args)
             return self.connection.getresponse()
-        except httplib.HTTPException:
+        except (httplib.HTTPException, socket.error):
             self.connection.close()
             self.connection = None
             raise

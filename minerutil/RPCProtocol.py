@@ -50,7 +50,7 @@ class HTTPBase(object):
 class RPCPoller(HTTPBase):
     """Polls the root's chosen bitcoind or pool RPC server for work."""
 
-    timeout = 15
+    timeout = 5
 
     def __init__(self, root):
         self.root = root
@@ -155,6 +155,8 @@ class LongPoller(HTTPBase):
     """Polls a long poll URL, reporting any parsed work results to the
     callback function.
     """
+
+    timeout = 300
 
     def __init__(self, url, root):
         self.url = url

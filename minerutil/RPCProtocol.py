@@ -34,12 +34,29 @@ class ServerMessage(Exception): pass
 class HTTPBase(object):
     connection = None
     timeout = None
-    lock = None
+    __lock = None
+    __response = None
+
+    def __makeResponse(self, *args, **kwargs):
+        # This function exists as a workaround: If the connection is closed,
+        # we also want to kill the response to allow the socket to die, but
+        # httplib doesn't keep the response hanging around at all, so we need
+        # to intercept its creation (hence this function) and store it.
+        self.__response = httplib.HTTPResponse(*args, **kwargs)
+        return self.__response
 
     def doRequest(self, *args):
-        if self.lock is None:
-            self.lock = defer.DeferredLock()
-        return self.lock.run(threads.deferToThread, self._doRequest, *args)
+        if self.__lock is None:
+            self.__lock = defer.DeferredLock()
+        return self.__lock.run(threads.deferToThread, self._doRequest, *args)
+
+    def closeConnection(self):
+        if self.connection is not None:
+            self.connection.close()
+        if self.__response is not None:
+                self.__response.close()
+        self.connection = None
+        self.__response = None
 
     def _doRequest(self, url, *args):
         if self.connection is None:
@@ -49,6 +66,8 @@ class HTTPBase(object):
             self.connection = connectionClass(url.hostname,
                                               url.port,
                                               timeout=self.timeout)
+            # Intercept the creation of the response class (see above)
+            self.connection.response_class = self.__makeResponse
             self.connection.connect()
             self.connection.sock.setsockopt(socket.SOL_TCP,
                                             socket.TCP_NODELAY, 1)
@@ -58,8 +77,7 @@ class HTTPBase(object):
             self.connection.request(*args)
             return self.connection.getresponse()
         except (httplib.HTTPException, socket.error):
-            self.connection.close()
-            self.connection = None
+            self.closeConnection()
             raise
 
 class RPCPoller(HTTPBase):
@@ -204,9 +222,7 @@ class LongPoller(HTTPBase):
     def stop(self):
         """Stop polling. This LongPoller probably shouldn't be reused."""
         self.polling = False
-        if self.connection:
-            self.connection.close()
-            self.connection = None
+        self.closeConnection()
 
     def _requestComplete(self, response):
         try:
@@ -266,8 +282,7 @@ class RPCClient(ClientBase):
         self._deactivateCallbacks()
         self.disconnected = True
         self.poller.setInterval(None)
-        if self.poller.connection is not None:
-            self.poller.connection.close()
+        self.poller.closeConnection()
         if self.longPoller:
             self.longPoller.stop()
             self.longPoller = None

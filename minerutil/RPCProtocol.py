@@ -187,7 +187,7 @@ class LongPoller(HTTPBase):
             path = self.url.path or '/'
             if self.url.query:
                 path += '?' + self.url.query
-            d = yield self.doRequest(
+            d = self.doRequest(
                 self.url,
                 'GET',
                 path,

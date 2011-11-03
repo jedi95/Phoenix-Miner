@@ -43,9 +43,12 @@ class HTTPBase(object):
 
     def _doRequest(self, url, *args):
         if self.connection is None:
-            self.connection = httplib.HTTPConnection(url.hostname,
-                                                     url.port or 80,
-                                                     timeout=self.timeout)
+            connectionClass = (httplib.HTTPSConnection
+                               if url.scheme.lower() == 'https' else
+                               httplib.HTTPConnection)
+            self.connection = connectionClass(url.hostname,
+                                              url.port,
+                                              timeout=self.timeout)
             self.connection.connect()
             self.connection.sock.setsockopt(socket.SOL_TCP,
                                             socket.TCP_NODELAY, 1)

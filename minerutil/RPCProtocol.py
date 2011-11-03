@@ -193,6 +193,9 @@ class LongPoller(HTTPBase):
     def stop(self):
         """Stop polling. This LongPoller probably shouldn't be reused."""
         self.polling = False
+        if self.connection:
+            self.connection.close()
+            self.connection = None
 
     def _requestComplete(self, response):
         try:
@@ -256,8 +259,6 @@ class RPCClient(ClientBase):
             self.poller.connection.close()
         if self.longPoller:
             self.longPoller.stop()
-            if self.longPoller.connection is not None:
-                self.longPoller.connection.close()
             self.longPoller = None
 
     def setMeta(self, var, value):
@@ -319,7 +320,6 @@ class RPCClient(ClientBase):
         self.poller.setInterval(askrate)
 
     def handleWork(self, work, pushed=False):
-
         if work is None:
             return;
 

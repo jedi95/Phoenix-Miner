@@ -142,7 +142,12 @@ class Miner(object):
         # Go!
         self.connection.connect()
         self.kernel.start()
-        reactor.addSystemEventTrigger('before', 'shutdown', self.kernel.stop)
+        reactor.addSystemEventTrigger('before', 'shutdown', self.shutdown)
+
+    def shutdown(self):
+        """Disconnect from the server and kill the kernel."""
+        self.kernel.stop()
+        self.connection.disconnect()
     
     def applyMeta(self):
         #Applies any static metafields to the connection, such as version,

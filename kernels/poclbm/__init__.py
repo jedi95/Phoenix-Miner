@@ -126,7 +126,7 @@ class MiningKernel(object):
     OUTPUT_SIZE = 0x100
 
     # This must be manually set for Git
-    REVISION = 116
+    REVISION = 120
 
     def __init__(self, interface):
         platforms = cl.get_platforms()

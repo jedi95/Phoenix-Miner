@@ -149,7 +149,7 @@ class MiningKernel(object):
     OUTPUT_SIZE = WORKSIZE
 
     # This must be manually set for Git
-    REVISION = 117
+    REVISION = 120
 
     def __init__(self, interface):
         platforms = cl.get_platforms()
@@ -270,12 +270,6 @@ class MiningKernel(object):
             #enable the expierimental BFI_INT instruction optimization
             if self.BFI_INT:
                 self.defines += ' -DBFI_INT'
-        else:
-            #Since phatk and phatk2 will error out on Nvidia GPUs
-            #make sure the user knows that they need to use poclbm
-            self.interface.fatal("GPU not supported! phatk2 is designed for "
-                "ATI 5xxx and newer only. Try -k poclbm instead.")
-            return
 
         # Locate and read the OpenCL source code in the kernel's directory.
         kernelFileDir, pyfile = os.path.split(__file__)

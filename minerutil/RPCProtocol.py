@@ -191,7 +191,7 @@ class LongPoller(HTTPBase):
     callback function.
     """
 
-    timeout = 300
+    timeout = 600
 
     def __init__(self, url, root):
         self.url = url

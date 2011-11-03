@@ -1,4 +1,4 @@
-# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and 
+# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
 #                       CFSworks <CFSworks@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,10 +30,10 @@ class BFIPatcher(object):
 
     def __init__(self, interface):
         self.interface = interface
-    
+
     def patch(self, data):
         """Run the process of patching an ELF."""
-        
+
         self.interface.debug('Finding inner ELF...')
         innerPos = self.locateInner(data)
         self.interface.debug('Patching inner ELF...')
@@ -41,7 +41,7 @@ class BFIPatcher(object):
         patched = self.patchInner(inner)
         self.interface.debug('Patch complete, returning to kernel...')
         return data[:innerPos] + patched
-    
+
     def patchInner(self, data):
         sections = self.readELFSections(data)
         # We're looking for .text -- there should be two of them.
@@ -53,11 +53,11 @@ class BFIPatcher(object):
         name, offset, size = textSections[1]
         before, text2, after = (data[:offset], data[offset:offset+size],
             data[offset+size:])
-        
+
         self.interface.debug('Patching instructions...')
         text2 = self.patchInstructions(text2)
         return before + text2 + after
-    
+
     def patchInstructions(self, data):
         output = ''
         nPatched = 0
@@ -73,40 +73,40 @@ class BFIPatcher(object):
             self.interface.debug('Patch safety threshold not met!')
             raise PatchError()
         return output
-    
+
     def locateInner(self, data):
         """ATI uses an ELF-in-an-ELF. I don't know why. This function's job is
         to find it.
         """
-        
+
         pos = data.find('\x7fELF', 1)
         if pos == -1 or data.find('\x7fELF', pos+1) != -1: # More than 1 is bad
             self.interface.debug('Inner ELF not located!')
             raise PatchError()
         return pos
-    
+
     def readELFSections(self, data):
         try:
             (ident1, ident2, type, machine, version, entry, phoff,
                 shoff, flags, ehsize, phentsize, phnum, shentsize, shnum,
                 shstrndx) = struct.unpack('QQHHIIIIIHHHHHH', data[:52])
-            
+
             if ident1 != 0x64010101464c457f:
                 self.interface.debug('Invalid ELF header!')
                 raise PatchError()
-            
+
             # No section header?
             if shoff == 0:
                 return []
-            
+
             # Find out which section contains the section header names
             shstr = data[shoff+shstrndx*shentsize:shoff+(shstrndx+1)*shentsize]
             (nameIdx, type, flags, addr, nameTableOffset, size, link, info,
                 addralign, entsize) = struct.unpack('IIIIIIIIII', shstr)
-            
+
             # Grab the section header.
             sh = data[shoff:shoff+shnum*shentsize]
-            
+
             sections = []
             for i in xrange(shnum):
                 rawEntry = sh[i*shentsize:(i+1)*shentsize]
@@ -115,7 +115,7 @@ class BFIPatcher(object):
                 nameOffset = nameTableOffset + nameIdx
                 name = data[nameOffset:data.find('\x00', nameOffset)]
                 sections.append((name, offset, size))
-            
+
             return sections
         except struct.error:
             self.interface.debug('A struct.error occurred while reading ELF!')

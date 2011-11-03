@@ -1,4 +1,4 @@
-# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and 
+# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
 #                       CFSworks <CFSworks@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,19 +26,18 @@ from RPCProtocol import RPCClient
 
 def openURL(url, handler):
     """Parses a URL and opens a connection using the appropriate client."""
-    
+
     parsed = urlparse.urlparse(url)
     if parsed.scheme.lower() == 'mmp':
         client = MMPClient(handler, parsed.hostname or 'localhost',
             parsed.port or 8880, parsed.username or 'default',
             parsed.password or 'default')
-        
+
         for var, value in urlparse.parse_qsl(parsed.path.lstrip('/?')):
             client.setMeta(var, value)
-        
+
         return client
     elif parsed.scheme.lower() in ['http', 'https']:
         return RPCClient(handler, parsed)
     else:
         raise ValueError('Unknown protocol: ' + parsed.scheme)
-    

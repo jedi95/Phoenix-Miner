@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and 
+# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
 #                       CFSworks <CFSworks@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,7 +35,7 @@ class CommandLineOptions(object):
     """Implements the Options interface for user-specified command-line
     arguments.
     """
-    
+
     def __init__(self):
         self.parsedSettings = None
         self.url = None
@@ -45,7 +45,7 @@ class CommandLineOptions(object):
         self.queue = None
         self.kernelOptions = {}
         self._parse()
-    
+
     def _parse(self):
         parser = OptionParser(usage="%prog -u URL [-k kernel] [kernel params]")
         parser.add_option("-v", "--verbose", action="store_true",
@@ -62,36 +62,36 @@ class CommandLineOptions(object):
         parser.add_option("-a", "--avgsamples", dest="avgsamples", type="int",
             default=10,
             help="how many samples to use for hashrate average")
-        
+
         self.parsedSettings, args = parser.parse_args()
-        
+
         if self.parsedSettings.url is None:
             parser.print_usage()
             exit()
         else:
             self.url = self.parsedSettings.url
             self.url2 = self.parsedSettings.url2
-        
+
         for arg in args:
             self._kernelOption(arg)
-    
+
     def getQueueSize(self):
         return self.parsedSettings.queuesize
     def getAvgSamples(self):
         return self.parsedSettings.avgsamples
-    
+
     def _kernelOption(self, arg):
         pair = arg.split('=',1)
         if len(pair) < 2:
             pair.append(None)
         var, value = tuple(pair)
         self.kernelOptions[var.upper()] = value
-    
+
     def makeLogger(self, requester, miner):
         if not self.logger:
             self.logger = ConsoleLogger(miner, self.parsedSettings.verbose)
         return self.logger
-    
+
     def makeConnection(self, requester, backup = False):
         url = self.url2 if backup else self.url
         try:
@@ -100,7 +100,7 @@ class CommandLineOptions(object):
             print(e)
             exit()
         return connection
-    
+
     def makeKernel(self, requester):
         if not self.kernel:
             module = self.parsedSettings.kernel
@@ -112,7 +112,7 @@ class CommandLineOptions(object):
             kernelModule = imp.load_module(module, file, filename, smt)
             self.kernel = kernelModule.MiningKernel(requester)
         return self.kernel
-    
+
     def makeQueue(self, requester):
         if not self.queue:
             self.queue = WorkQueue(requester, self)
@@ -122,5 +122,5 @@ if __name__ == '__main__':
     options = CommandLineOptions()
     miner = Miner()
     miner.start(options)
-    
+
     reactor.run()

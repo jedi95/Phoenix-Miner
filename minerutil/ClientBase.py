@@ -1,4 +1,4 @@
-# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and 
+# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
 #                       CFSworks <CFSworks@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,7 +23,7 @@ class AssignedWork(object):
     data = None
     mask = None
     target = None
-    
+
 class ClientBase(object):
     callbacksActive = True
 
@@ -31,13 +31,13 @@ class ClientBase(object):
         """Shut down the runCallback function. Typically used post-disconnect.
         """
         self.callbacksActive = False
-    
+
     def runCallback(self, callback, *args):
         """Call the callback on the handler, if it's there, specifying args."""
-        
+
         if not self.callbacksActive:
             return
-        
+
         func = getattr(self.handler, 'on' + callback.capitalize(), None)
         if callable(func):
             func(*args)

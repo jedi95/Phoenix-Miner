@@ -1,4 +1,4 @@
-# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and 
+# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
 #                       CFSworks <CFSworks@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,26 +37,26 @@ class MMPProtocolBase(LineReceiver):
         args = halves[0].split(' ') # The space-separated part.
         if len(halves) == 2:
             args.append(halves[1]) # The final argument; could contain spaces.
-        
+
         cmd = args[0]
         args = args[1:]
-        
+
         self.handleCommand(cmd, args)
-    
+
     def handleCommand(self, cmd, args):
         """Handle a parsed command.
-        
+
         This function takes care of converting arguments to their appropriate
         types and then calls the function handler. If a command is unknown,
         it is dispatched to illegalCommand.
         """
         function = getattr(self, 'cmd_' + cmd, None)
-        
+
         if function is None or cmd not in self.commands:
             return
-        
+
         types = self.commands[cmd]
-        
+
         if len(types) != len(args):
             converted = False
         else:
@@ -67,25 +67,25 @@ class MMPProtocolBase(LineReceiver):
                 except (ValueError, TypeError):
                     converted = False
                     break
-        
+
         if converted:
             function(*args)
         else:
             self.illegalCommand(cmd)
-    
+
     def illegalCommand(self, cmd):
         pass # To be overridden by superclasses...
-    
+
 class MMPClientProtocol(MMPProtocolBase, ClientBase):
     """The actual connection to an MMP server. Probably not a good idea to use
     this directly, use MMPClient instead.
     """
-    
+
     # A suitable default, but the server really should set this itself.
     target = ('\xff'*28) + ('\x00'*4)
-    
+
     metaSent = False
-    
+
     commands = {
         'MSG':      (str,),
         'TARGET':   (str,),
@@ -94,7 +94,7 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
         'ACCEPTED': (str,),
         'REJECTED': (str,),
     }
-    
+
     def connectionMade(self):
         self.factory.connection = self
         self.runCallback('connect')
@@ -104,20 +104,20 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
         for var,value in self.factory.meta.items():
             self.sendMeta(var, value)
         self.metaSent = True
-    
+
     def connectionLost(self, reason):
         self.runCallback('disconnect')
         self.factory.connection = None
         self.factory._purgeDeferreds()
-    
+
     def sendMeta(self, var, value):
         # Don't include ':' when sending a meta int, as per the protocol spec.
         colon = '' if isinstance(value, int) else ':'
         self.sendLine('META %s %s%s' % (var, colon, value))
-    
+
     def cmd_MSG(self, message):
         self.runCallback('msg', message)
-    
+
     def cmd_TARGET(self, target):
         try:
             t = target.decode('hex')
@@ -125,7 +125,7 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
             return
         if len(t) == 32:
             self.target = t
-    
+
     def cmd_WORK(self, work, mask):
         try:
             data = work.decode('hex')
@@ -141,10 +141,10 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
         # Since the server is giving work, we know it has accepted our
         # login details, so we can reset the factory's reconnect delay.
         self.factory.resetDelay()
-    
+
     def cmd_BLOCK(self, block):
         self.runCallback('block', block)
-    
+
     def cmd_ACCEPTED(self, data):
         self.factory._resultReturned(data, True)
     def cmd_REJECTED(self, data):
@@ -152,58 +152,58 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
 
 class MMPClient(ReconnectingClientFactory, ClientBase):
     """This class implements an outbound connection to an MMP server.
-    
+
     It's a factory so that it can automatically reconnect when the connection
     is lost.
     """
-    
+
     protocol = MMPClientProtocol
     maxDelay = 60
     initialDelay = 0.2
-    
+
     username = None
     password = None
     meta = {'version': 'MMPClient v0.8 by CFSworks'}
-    
+
     deferreds = {}
     connection = None
-    
+
     def __init__(self, handler, host, port, username, password):
         self.handler = handler
         self.host = host
         self.port = port
         self.username = username
         self.password = password
-    
+
     def buildProtocol(self, addr):
         p = self.protocol()
         p.factory = self
         p.handler = self.handler
         return p
-    
+
     def clientConnectionFailed(self, connector, reason):
         self.runCallback('failure')
-    
+
         return ReconnectingClientFactory.clientConnectionFailed(
             self, connector, reason)
-    
+
     def connect(self):
         """Tells the MMPClient to connect if it hasn't already."""
-        
+
         reactor.connectTCP(self.host, self.port, self)
-    
+
     def disconnect(self):
         """Tells the MMPClient to disconnect or stop connecting.
         The MMPClient shouldn't be used again.
         """
-        
+
         self._deactivateCallbacks()
-        
+
         if self.connection is not None:
             self.connection.transport.loseConnection()
-        
+
         self.stopTrying()
-    
+
     def requestWork(self):
         """If connected, ask the server for more work. The request is not sent
         if the client isn't connected, since the server will provide work upon
@@ -211,7 +211,7 @@ class MMPClient(ReconnectingClientFactory, ClientBase):
         """
         if self.connection is not None:
             self.connection.sendLine('MORE')
-    
+
     def setMeta(self, var, value):
         """Set a metavariable, which gets sent to the server on-connect (or
         immediately, if already connected.)
@@ -219,22 +219,22 @@ class MMPClient(ReconnectingClientFactory, ClientBase):
         self.meta[var] = value
         if self.connection and self.connection.metaSent:
             self.connection.sendMeta(var, value)
-    
+
     def setVersion(self, shortname, longname=None, version=None, author=None):
         """Tells the protocol the application's version."""
-        
+
         vstr = longname if longname is not None else shortname
-        
+
         if version is not None:
             if not version.startswith('v') and not version.startswith('r'):
                 version = 'v' + version
             vstr += ' ' + version
-        
+
         if author is not None:
             vstr += ' by ' + author
-        
+
         self.setMeta('version', vstr)
-    
+
     def sendResult(self, result):
         """Submit a work result to the server. Returns a deferred which
         provides a True/False depending on whether or not the server
@@ -242,28 +242,28 @@ class MMPClient(ReconnectingClientFactory, ClientBase):
         """
         if self.connection is None:
             return defer.succeed(False)
-        
+
         d = defer.Deferred()
-        
+
         if result in self.deferreds:
             self.deferreds[result].chainDeferred(d)
         else:
             self.deferreds[result] = d
-        
+
         self.connection.sendLine('RESULT ' + result.encode('hex'))
         return d
-    
+
     def _purgeDeferreds(self):
         for d in self.deferreds.values():
             d.callback(False)
         self.deferreds = {}
-    
+
     def _resultReturned(self, data, accepted):
         try:
             data = data.decode('hex')
         except (TypeError, ValueError):
             return
-        
+
         if data in self.deferreds:
             self.deferreds[data].callback(accepted)
             del self.deferreds[data]

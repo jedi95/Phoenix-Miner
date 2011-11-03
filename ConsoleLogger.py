@@ -1,4 +1,4 @@
-# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and 
+# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
 #                       CFSworks <CFSworks@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,15 +39,15 @@ def formatNumber(n):
         else:
             break
     return '%s%s %s' % (whole, decimal, prefixes[i])
-        
+
 class ConsoleLogger(object):
     """This class will handle printing messages to the console."""
-    
+
     TIME_FORMAT = '[%d/%m/%Y %H:%M:%S]'
-    
+
     UPDATE_TIME = 1.0
-    
-    def __init__(self, miner, verbose=False): 
+
+    def __init__(self, miner, verbose=False):
         self.verbose = verbose
         self.miner = miner
         self.lastUpdate = time() - 1
@@ -56,25 +56,25 @@ class ConsoleLogger(object):
         self.invalid = 0
         self.lineLength = 0
         self.connectionType = None
-    
+
     def reportRate(self, rate, update=True):
         """Used to tell the logger the current Khash/sec."""
         self.rate = rate
         if update:
             self.updateStatus()
-    
+
     def reportType(self, type):
         self.connectionType = type
-    
+
     def reportBlock(self, block):
         self.log('Currently on block: ' + str(block))
-        
+
     def reportFound(self, hash, accepted):
         if accepted:
             self.accepted += 1
         else:
             self.invalid += 1
-        
+
         hexHash = hash[::-1]
         hexHash = hexHash[:8].encode('hex')
         if self.verbose:
@@ -83,23 +83,23 @@ class ConsoleLogger(object):
         else:
             self.log('Result: %s %s' % (hexHash[8:],
                 'accepted' if accepted else 'rejected'))
-            
+
     def reportMsg(self, message):
         self.log(('MSG: ' + message), True, True)
-    
+
     def reportConnected(self, connected):
         if connected:
             self.log('Connected to server')
         else:
             self.log('Disconnected from server')
-    
+
     def reportConnectionFailed(self):
         self.log('Failed to connect, retrying...')
-    
+
     def reportDebug(self, message):
         if self.verbose:
             self.log(message)
-        
+
     def updateStatus(self, force=False):
         #only update if last update was more than a second ago
         dt = time() - self.lastUpdate
@@ -112,7 +112,7 @@ class ConsoleLogger(object):
                 "[" + str(self.invalid) + " Rejected]" + type)
             self.say(status)
             self.lastUpdate = time()
-        
+
     def say(self, message, newLine=False, hideTimestamp=False):
         #add new line if requested
         if newLine:
@@ -121,9 +121,9 @@ class ConsoleLogger(object):
                 timestamp = ''
             else:
                 timestamp = datetime.now().strftime(self.TIME_FORMAT) + ' '
-                
+
             message = timestamp + message
-        
+
         #erase the previous line
         if self.lineLength > 0:
             sys.stdout.write('\b \b' * self.lineLength)
@@ -133,7 +133,7 @@ class ConsoleLogger(object):
         #print the line
         sys.stdout.write(message)
         sys.stdout.flush()
-        
+
         #cache the current line length
         if newLine:
             self.lineLength = 0
@@ -144,4 +144,3 @@ class ConsoleLogger(object):
         self.say(message, True, hideTimestamp)
         if update:
             self.updateStatus(True)
-        

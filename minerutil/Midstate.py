@@ -1,4 +1,4 @@
-# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and 
+# Copyright (C) 2011 by jedi95 <jedi95@gmail.com> and
 #                       CFSworks <CFSworks@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -60,9 +60,9 @@ def calculateMidstate(data, state=None, rounds=None):
     """
     if len(data) != 64:
         raise ValueError('data must be 64 bytes long')
-    
+
     w = list(struct.unpack('<IIIIIIIIIIIIIIII', data))
-    
+
     if state is not None:
         if len(state) != 32:
             raise ValueError('state must be 32 bytes long')
@@ -76,20 +76,20 @@ def calculateMidstate(data, state=None, rounds=None):
         f = F0
         g = G0
         h = H0
-    
+
     consts = K if rounds is None else K[:rounds]
     for k in consts:
         s0 = rotateright(a,2) ^ rotateright(a,13) ^ rotateright(a,22)
         s1 = rotateright(e,6) ^ rotateright(e,11) ^ rotateright(e,25)
         ma = (a&b) ^ (a&c) ^ (b&c)
         ch = (e&f) ^ ((~e)&g)
-        
+
         h = addu32(h,w[0],k,ch,s1)
         d = addu32(d,h)
         h = addu32(h,ma,s0)
-        
+
         a,b,c,d,e,f,g,h = h,a,b,c,d,e,f,g
-        
+
         s0 = rotateright(w[1],7) ^ rotateright(w[1],18) ^ (w[1] >> 3)
         s1 = rotateright(w[14],17) ^ rotateright(w[14],19) ^ (w[14] >> 10)
         w.append(addu32(w[0], s0, w[9], s1))
@@ -104,5 +104,5 @@ def calculateMidstate(data, state=None, rounds=None):
         f = addu32(f, F0)
         g = addu32(g, G0)
         h = addu32(h, H0)
-    
+
     return struct.pack('<IIIIIIII', a, b, c, d, e, f, g, h)

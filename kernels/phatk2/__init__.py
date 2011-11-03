@@ -37,17 +37,17 @@ from BFIPatcher import *
 
 class KernelData(object):
     #This class is a container for all the data required for a single kernel execution.
-    
+
     def __init__(self, nonceRange, core, rateDivisor, aggression):
         # Prepare some raw data, converting it into the form that the OpenCL
         # function expects.
         data   = np.array(
             unpack('IIII', nonceRange.unit.data[64:]), dtype=np.uint32)
-        
+
         # get the number of iterations from the aggression and size
         self.iterations = int((nonceRange.size / (1 << aggression)))
         self.iterations = max(1, self.iterations)
-        
+
         #set the size to pass to the kernel based on iterations and vectors
         self.size = (nonceRange.size / rateDivisor) / self.iterations
         self.totalsize = nonceRange.size
@@ -79,10 +79,10 @@ class KernelData(object):
         self.state2 = np.array(
             list(self.state2)[3:] + list(self.state2)[:3], dtype=np.uint32)
         self.nr = nonceRange
-        
+
         self.f = np.zeros(9, np.uint32)
         self.calculateF(data)
-    
+
     def calculateF(self, data):
         rot = lambda x,y: x>>y | x<<(32-y)
         #W2
@@ -117,11 +117,11 @@ class KernelData(object):
             (W17 >> 10)))
         self.f[8] = np.uint32(data[2] + (rot(W16, 17) ^ rot(W16, 19) ^
             (W16 >> 10)))
-        
-        
+
+
 class MiningKernel(object):
     #A Phoenix Miner-compatible OpenCL kernel created by Phateus
-    
+
     PLATFORM = KernelOption(
         'PLATFORM', int, default=None,
         help='The ID of the OpenCL platform to use')
@@ -148,10 +148,10 @@ class MiningKernel(object):
         'BFI_INT', bool, default=True, advanced=True,
         help='Use the BFI_INT instruction for AMD/ATI GPUs.')
     OUTPUT_SIZE = WORKSIZE
-    
+
     # This must be manually set for Git
     REVISION = 117
-    
+
     def __init__(self, interface):
         platforms = cl.get_platforms()
 
@@ -162,19 +162,19 @@ class MiningKernel(object):
         self.core = self.interface.addCore()
         self.defines = ''
         self.loopExponent = 0
-        
+
         # Set the initial number of nonces to run per execution
         # 2^(16 + aggression)
         self.AGGRESSION += 16
         self.AGGRESSION = min(32, self.AGGRESSION)
         self.AGGRESSION = max(16, self.AGGRESSION)
         self.size = 1 << self.AGGRESSION
-        
+
         # We need a QueueReader to efficiently provide our dedicated thread
         # with work.
-        self.qr = QueueReader(self.core, lambda nr: self.preprocess(nr), 
+        self.qr = QueueReader(self.core, lambda nr: self.preprocess(nr),
                                 lambda x,y: self.size * 1 << self.loopExponent)
-        
+
         # The platform selection must be valid to mine.
         if self.PLATFORM >= len(platforms) or \
             (self.PLATFORM is None and len(platforms) > 1):
@@ -182,18 +182,18 @@ class MiningKernel(object):
                 'Wrong platform or more than one OpenCL platform found, '
                 'use PLATFORM=ID to select one of the following\n',
                 False, True)
-            
+
             for i,p in enumerate(platforms):
                 self.interface.log('    [%d]\t%s' % (i, p.name), False, False)
-            
+
             # Since the platform is invalid, we can't mine.
             self.interface.fatal()
             return
         elif self.PLATFORM is None:
             self.PLATFORM = 0
-            
+
         devices = platforms[self.PLATFORM].get_devices()
-        
+
         # The device selection must be valid to mine.
         if self.DEVICE >= len(devices) or \
             (self.DEVICE is None and len(devices) > 1):
@@ -201,25 +201,25 @@ class MiningKernel(object):
                 'No device specified or device not found, '
                 'use DEVICE=ID to specify one of the following\n',
                 False, True)
-            
+
             for i,d in enumerate(devices):
                 self.interface.log('    [%d]\t%s' % (i, d.name), False, False)
-        
+
             # Since the device selection is invalid, we can't mine.
             self.interface.fatal()
             return
         elif self.DEVICE is None:
             self.DEVICE = 0
-        
+
         self.device = devices[self.DEVICE]
-        
+
         # We need the appropriate kernel for this device...
         try:
             self.loadKernel(self.device)
         except Exception:
             self.interface.fatal("Failed to load OpenCL kernel!")
             return
-        
+
         # Initialize a command queue to send commands to the device, and a
         # buffer to collect results in...
         self.commandQueue = cl.CommandQueue(self.context)
@@ -227,34 +227,34 @@ class MiningKernel(object):
         self.output_buf = cl.Buffer(
             self.context, cl.mem_flags.WRITE_ONLY | cl.mem_flags.USE_HOST_PTR,
             hostbuf=self.output)
-    
+
         self.applyMeta()
-        
+
     def applyMeta(self):
         #Apply any kernel-specific metadata.
         self.interface.setMeta('kernel', 'phatk2 r%s' % self.REVISION)
         self.interface.setMeta('device', self.device.name.replace('\x00',''))
         self.interface.setMeta('cores', self.device.max_compute_units)
-    
+
     def loadKernel(self, device):
         #Load the kernel and initialize the device.
         self.context = cl.Context([device], None, None)
-        
+
         # If the user didn't specify their own worksize, use 256
         if self.WORKSIZE is None:
             self.WORKSIZE = 256
         else:
             #if the worksize is not a power of 2, round down to the nearest one
-            if (self.WORKSIZE & (self.WORKSIZE - 1)) != 0:   
+            if (self.WORKSIZE & (self.WORKSIZE - 1)) != 0:
                 self.WORKSIZE = 1 << int(math.floor(math.log(X)/math.log(2)))
-        
+
         # These definitions are required for the kernel to function.
         self.defines += (' -DOUTPUT_SIZE=' + str(self.OUTPUT_SIZE))
         self.defines += (' -DOUTPUT_MASK=' + str(self.OUTPUT_SIZE - 1))
         self.defines += (' -DWORKSIZE=' + str(self.WORKSIZE))
-                
+
         # If the user wants to mine with vectors, enable the appropriate code
-        # in the kernel source.        
+        # in the kernel source.
         if self.VECTORS:
             self.defines += ' -DVECTORS'
             self.rateDivisor = 2
@@ -263,7 +263,7 @@ class MiningKernel(object):
             self.rateDivisor = 4
         else:
             self.rateDivisor = 1
-            
+
         # Some AMD devices support a special "bitalign" instruction that makes
         # bitwise rotation (required for SHA-256) much faster.
         if (device.extensions.find('cl_amd_media_ops') != -1):
@@ -277,14 +277,14 @@ class MiningKernel(object):
             self.interface.fatal("GPU not supported! phatk2 is designed for "
                 "ATI 5xxx and newer only. Try -k poclbm instead.")
             return
-        
+
         # Locate and read the OpenCL source code in the kernel's directory.
         kernelFileDir, pyfile = os.path.split(__file__)
         kernelFilePath = os.path.join(kernelFileDir, 'kernel.cl')
         kernelFile = open(kernelFilePath, 'r')
         kernel = kernelFile.read()
         kernelFile.close()
-        
+
         # For fast startup, we cache the compiled OpenCL code. The name of the
         # cache is determined as the hash of a few important,
         # compilation-specific pieces of information.
@@ -295,33 +295,33 @@ class MiningKernel(object):
         m.update(self.defines)
         m.update(kernel)
         cacheName = '%s.elf' % m.hexdigest()
-        
+
         fileName = os.path.join(kernelFileDir, cacheName)
-        
+
         # Finally, the actual work of loading the kernel...
         try:
             binary = open(fileName, 'rb')
-        except IOError: 
+        except IOError:
             binary = None
-        
+
         try:
             if binary is None:
                 self.kernel = cl.Program(
                     self.context, kernel).build(self.defines)
-                 
+
                 #apply BFI_INT if enabled
                 if self.BFI_INT:
                     #patch the binary output from the compiler
                     patcher = BFIPatcher(self.interface)
                     binaryData = patcher.patch(self.kernel.binaries[0])
-                    
+
                     self.interface.debug("Applied BFI_INT patch")
-                    
+
                     #reload the kernel with the patched binary
                     self.kernel = cl.Program(
                         self.context, [device],
                         [binaryData]).build(self.defines)
-                
+
                 #write the kernel binaries to file
                 binaryW = open(fileName, 'wb')
                 binaryW.write(self.kernel.binaries[0])
@@ -330,7 +330,7 @@ class MiningKernel(object):
                 binaryData = binary.read()
                 self.kernel = cl.Program(
                     self.context, [device], [binaryData]).build(self.defines)
-                    
+
         except cl.LogicError:
             self.interface.fatal("Failed to compile OpenCL kernel!")
             return
@@ -342,12 +342,12 @@ class MiningKernel(object):
             if binary: binary.close()
 
         cl.unload_compiler()
-        
+
         # Since this can't be run before compiling the kernel, all we can do is
         # check to make sure the selected size is not too large
         maxSize = self.kernel.search.get_work_group_info(
                   cl.kernel_work_group_info.WORK_GROUP_SIZE, self.device)
-                  
+
         if self.WORKSIZE > maxSize:
             self.interface.fatal('Maximum WORKSIZE on the selected device is '
                     + str(maxSize))
@@ -368,7 +368,7 @@ class MiningKernel(object):
     def updateIterations(self):
         # Set up the number of internal iterations to run if FASTLOOP enabled
         rate = self.core.getRate()
-         
+
         if not (rate <= 0):
             #calculate the number of iterations to run
             EXP = max(0, (math.log(rate)/math.log(2)) - (self.AGGRESSION - 8))
@@ -379,21 +379,21 @@ class MiningKernel(object):
                 EXP = round(EXP)
             else:
                 EXP = self.loopExponent
-                
+
             self.loopExponent = int(max(0, EXP))
-        
+
     def preprocess(self, nr):
         if self.FASTLOOP:
             self.updateIterations()
-        
+
         kd = KernelData(nr, self.core, self.rateDivisor, self.AGGRESSION)
         return kd
-    
+
     def postprocess(self, output, nr):
         #Scans over a single buffer produced as a result of running the
         #OpenCL kernel on the device. This is done outside of the mining thread
         #for efficiency reasons.
-        
+
         # Iterate over only the first OUTPUT_SIZE items. Exclude the last item
         # which is a duplicate of the most recently-found nonce.
         for i in xrange(self.OUTPUT_SIZE):
@@ -403,7 +403,7 @@ class MiningKernel(object):
                     if not hash.endswith('\x00\x00\x00\x00'):
                         self.interface.error('Unusual behavior from OpenCL. '
                             'Hardware problem?')
-    
+
     def mineThread(self):
         for data in self.qr:
             for i in range(data.iterations):
@@ -422,16 +422,16 @@ class MiningKernel(object):
                 cl.enqueue_read_buffer(
                     self.commandQueue, self.output_buf, self.output)
                 self.commandQueue.finish()
-                
+
                 # The OpenCL code will flag the last item in the output buffer
                 # when it finds a valid nonce. If that's the case, send it to
                 # the main thread for postprocessing and clean the buffer
                 # for the next pass.
                 if self.output[self.OUTPUT_SIZE]:
-                    reactor.callFromThread(self.postprocess, 
+                    reactor.callFromThread(self.postprocess,
                     self.output.copy(), data.nr)
-            
+
                     self.output.fill(0)
                     cl.enqueue_write_buffer(
                         self.commandQueue, self.output_buf, self.output)
- 
+

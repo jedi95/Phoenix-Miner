@@ -54,9 +54,24 @@ class HTTPBase(object):
         if self.connection is not None:
             if self.connection.sock is not None:
                 self.connection.sock._sock.close()
-            self.connection.close()
+            try:
+                self.connection.close()
+            except (AttributeError):
+                #This is to fix "'NoneType' object has no attribute 'close'"
+                #Theoretically this shouldn't be possible as we specifically
+                #verify that self.connection isn't NoneType before trying to
+                #call close(). I would add a debug message here, but HTTPBase
+                #isn't passed a reference to the miner. The stack trace causing
+                #this problem originates from the errback on line 138 (ask())
+                #Most likely some sort of threading problem (race condition)
+                pass
+
         if self.__response is not None:
+            try:
                 self.__response.close()
+            except (AttributeError):
+                #This was added for the same reason as the above
+                pass
         self.connection = None
         self.__response = None
 
@@ -191,7 +206,10 @@ class LongPoller(HTTPBase):
     callback function.
     """
 
-    timeout = 600
+    #Changed to 1800, since 600 seconds will cause it to reconnect
+    #once every 10 minutes. Most pools will not cancel a long poll if the block
+    #exceeds 10 minutes. 30 minutes should be a sane value for this.
+    timeout = 1800
 
     def __init__(self, url, root):
         self.url = url

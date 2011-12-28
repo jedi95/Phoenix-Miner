@@ -29,7 +29,7 @@ from KernelInterface import KernelInterface
 class Miner(object):
 
     # This must be manually set for Git
-    VER = (1, 7, 0)
+    VER = (1, 7, 1)
     REVISION = reduce(lambda x,y: x*100+y, VER)
     VERSION = 'v%s' % '.'.join(str(x) for x in VER)
 

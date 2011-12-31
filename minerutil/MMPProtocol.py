@@ -83,6 +83,7 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
 
     # A suitable default, but the server really should set this itself.
     target = ('\xff'*28) + ('\x00'*4)
+    time = 0
 
     metaSent = False
 
@@ -93,6 +94,7 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
         'BLOCK':    (int,),
         'ACCEPTED': (str,),
         'REJECTED': (str,),
+        'TIME':     (int,),
     }
 
     def connectionMade(self):
@@ -126,6 +128,9 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
         if len(t) == 32:
             self.target = t
 
+    def cmd_TIME(self, time):
+        self.time = time
+
     def cmd_WORK(self, work, mask):
         try:
             data = work.decode('hex')
@@ -137,6 +142,7 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
         wu.data = data
         wu.mask = mask
         wu.target = self.target
+        wu.setMaxTimeIncrement(self.time)
         self.runCallback('work', wu)
         # Since the server is giving work, we know it has accepted our
         # login details, so we can reset the factory's reconnect delay.
@@ -163,7 +169,7 @@ class MMPClient(ReconnectingClientFactory, ClientBase):
 
     username = None
     password = None
-    meta = {'version': 'MMPClient v0.8 by CFSworks'}
+    meta = {'version': 'MMPClient v1.0 by CFSworks'}
 
     deferreds = {}
     connection = None

@@ -92,7 +92,10 @@ class HTTPBase(object):
                                             socket.SO_KEEPALIVE, 1)
         try:
             self.connection.request(*args)
-            return self.connection.getresponse()
+            response = self.connection.getresponse()
+            headers = response.getheaders()
+            data = response.read()
+            return (headers, data)
         except (httplib.HTTPException, socket.error):
             self.closeConnection()
             raise
@@ -143,9 +146,6 @@ class RPCPoller(HTTPBase):
             try:
                 if failure.check(ServerMessage):
                     self.root.runCallback('msg', failure.getErrorMessage())
-                else:
-                    self.root.runCallback('debug', failure.getErrorMessage())
-
                 self.root._failure()
             finally:
                 self._startCall()
@@ -158,7 +158,7 @@ class RPCPoller(HTTPBase):
                     (headers, result) = x
                 except TypeError:
                     return
-                self.root.handleWork(result)
+                self.root.handleWork(result, headers)
                 self.root.handleHeaders(headers)
             finally:
                 self._startCall()
@@ -183,9 +183,9 @@ class RPCPoller(HTTPBase):
                 'Content-Type': 'application/json'
             })
 
-        data = response.read()
+        (headers, data) = response
         result = self.parse(data)
-        defer.returnValue((dict(response.getheaders()), result))
+        defer.returnValue((dict(headers), result))
 
     @classmethod
     def parse(cls, data):
@@ -252,7 +252,13 @@ class LongPoller(HTTPBase):
             if isinstance(response, failure.Failure):
                 return
 
-            data = response.read()
+            try:
+                (headers, data) = response
+            except TypeError:
+                #handle case where response doesn't contain valid data
+                self.root.runCallback('debug', 'TypeError in LP response:')
+                self.root.runCallback('debug', str(response))
+                return
 
             try:
                 result = RPCPoller.parse(data)
@@ -266,7 +272,7 @@ class LongPoller(HTTPBase):
         finally:
             self._request()
 
-        self.root.handleWork(result, True)
+        self.root.handleWork(result, headers, True)
 
 class RPCClient(ClientBase):
     """The actual root of the whole RPC client system."""
@@ -281,13 +287,14 @@ class RPCClient(ClientBase):
                 self.params[s[0]] = s[1]
         self.auth = 'Basic ' + ('%s:%s' % (
             url.username, url.password)).encode('base64').strip()
-        self.version = 'RPCClient/1.8'
+        self.version = 'RPCClient/2.0'
 
         self.poller = RPCPoller(self)
         self.longPoller = None # Gets created later...
         self.disconnected = False
         self.saidConnected = False
         self.block = None
+        self.setupMaxtime()
 
     def connect(self):
         """Begin communicating with the server..."""
@@ -295,8 +302,8 @@ class RPCClient(ClientBase):
         self.poller.ask()
 
     def disconnect(self):
-        """Cease server communications immediately. The client might be
-        reusable, but it's probably best not to try.
+        """Cease server communications immediately. The client is probably not
+        reusable, so it's probably best not to try.
         """
 
         self._deactivateCallbacks()
@@ -306,6 +313,16 @@ class RPCClient(ClientBase):
         if self.longPoller:
             self.longPoller.stop()
             self.longPoller = None
+
+    def setupMaxtime(self):
+        try:
+            self.maxtime = int(self.params['maxtime'])
+            if self.maxtime < 0:
+                self.maxtime = 0
+            elif self.maxtime > 3600:
+                self.maxtime = 3600
+        except (KeyError, ValueError):
+            self.maxtime = 60
 
     def setMeta(self, var, value):
         """RPC clients do not support meta. Ignore."""
@@ -339,7 +356,7 @@ class RPCClient(ClientBase):
                 (headers, accepted) = x
             except TypeError:
                 self.runCallback('debug',
-                        "TypeError in RPC sendResult callback")
+                        'TypeError in RPC sendResult callback')
                 return False
 
             if (not accepted):
@@ -355,7 +372,7 @@ class RPCClient(ClientBase):
     def handleRejectReason(self, headers):
         reason = headers.get('x-reject-reason')
         if reason is not None:
-            self.runCallback('debug', "Reject reason: " + str(reason))
+            self.runCallback('debug', 'Reject reason: ' + str(reason))
 
     def useAskrate(self, variable):
         defaults = {'askrate': 10, 'retryrate': 15, 'lpaskrate': 0}
@@ -365,29 +382,49 @@ class RPCClient(ClientBase):
             askrate = defaults.get(variable, 10)
         self.poller.setInterval(askrate)
 
-    def handleWork(self, work, pushed=False):
+    def handleWork(self, work, headers, pushed=False):
         if work is None:
             return;
+
+        try:
+            rollntime = headers.get('x-roll-ntime')
+        except:
+            rollntime = None
+
+        if rollntime:
+            if rollntime.lower().startswith('expires='):
+                try:
+                    maxtime = int(rollntime[8:])
+                except:
+                    #if the server supports rollntime but doesn't format the
+                    #request properly, then use a sensible default
+                    maxtime = self.maxtime
+            else:
+                if rollntime.lower() in ('t', 'true', 'on', '1', 'y', 'yes'):
+                    maxtime = self.maxtime
+                elif rollntime.lower() in ('f', 'false', 'off', '0', 'n', 'no'):
+                    maxtime = 0
+                else:
+                    try:
+                        maxtime = int(rollntime)
+                    except:
+                        maxtime = self.maxtime
+        else:
+            maxtime = 0
+
+        if self.maxtime < maxtime:
+            maxtime = self.maxtime
 
         if not self.saidConnected:
             self.saidConnected = True
             self.runCallback('connect')
             self.useAskrate('askrate')
 
-        if 'block' in work:
-            try:
-                block = int(work['block'])
-            except (TypeError, ValueError):
-                pass
-            else:
-                if self.block != block:
-                    self.block = block
-                    self.runCallback('block', block)
-
         aw = AssignedWork()
         aw.data = work['data'].decode('hex')[:80]
         aw.target = work['target'].decode('hex')
         aw.mask = work.get('mask', 32)
+        aw.setMaxTimeIncrement(maxtime)
         if pushed:
             self.runCallback('push', aw)
         self.runCallback('work', aw)
@@ -401,8 +438,11 @@ class RPCClient(ClientBase):
             if self.block != block:
                 self.block = block
                 self.runCallback('block', block)
+        try:
+            longpoll = headers.get('x-long-polling')
+        except:
+            longpoll = None
 
-        longpoll = headers.get('x-long-polling')
         if longpoll:
             lpParsed = urlparse.urlparse(longpoll)
             lpURL = urlparse.ParseResult(

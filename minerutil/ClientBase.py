@@ -19,10 +19,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import struct
+
 class AssignedWork(object):
     data = None
     mask = None
     target = None
+    maxtime = None
+    time = None
+    def setMaxTimeIncrement(self, n):
+        self.time = n
+        self.maxtime = struct.unpack('>I', self.data[68:72])[0] + n
 
 class ClientBase(object):
     callbacksActive = True

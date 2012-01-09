@@ -49,7 +49,7 @@ class KernelData(object):
         rateDivisor = 2 if vectors else 1
 
         # get the number of iterations from the aggression and size
-        self.iterations = int((nonceRange.size / (1 << aggression)))
+        self.iterations = int(nonceRange.size / (1 << aggression))
         self.iterations = max(1, self.iterations)
 
         #set the size to pass to the kernel based on iterations and vectors
@@ -143,7 +143,7 @@ class MiningKernel(object):
     OUTPUT_SIZE = 0x100
 
     # This must be manually set for Git
-    REVISION = 120
+    REVISION = 121
 
     def __init__(self, interface):
         platforms = cl.get_platforms()
@@ -233,6 +233,23 @@ class MiningKernel(object):
         """Load the kernel and initialize the device."""
         self.context = cl.Context([device], None, None)
 
+        # get the maximum worksize of the device
+        maxWorkSize = self.device.get_info(cl.device_info.MAX_WORK_GROUP_SIZE)
+
+        # If the user didn't specify their own worksize, use the maximum supported worksize of the device
+        if self.WORKSIZE is None:
+            self.interface.error('WORKSIZE not supplied, using HW max. of ' + str(maxWorkSize))
+            self.WORKSIZE = maxWorkSize
+        else:
+            # If the worksize is larger than the maximum supported worksize of the device
+            if (self.WORKSIZE > maxWorkSize):
+                self.interface.error('WORKSIZE out of range, using HW max. of ' + str(maxWorkSize))
+                self.WORKSIZE = maxWorkSize
+            # If the worksize is not a power of 2
+            if (self.WORKSIZE & (self.WORKSIZE - 1)) != 0:
+                self.interface.error('WORKSIZE invalid, using HW max. of ' + str(maxWorkSize))
+                self.WORKSIZE = maxWorkSize
+
         # These definitions are required for the kernel to function.
         self.defines += (' -DOUTPUT_SIZE=' + str(self.OUTPUT_SIZE))
         self.defines += (' -DOUTPUT_MASK=' + str(self.OUTPUT_SIZE - 1))
@@ -313,27 +330,8 @@ class MiningKernel(object):
         finally:
             if binary: binary.close()
 
+        #unload the compiler to reduce memory usage
         cl.unload_compiler()
-
-        # If the user didn't specify their own worksize, use the maxium
-        # supported by the device.
-        maxSize = self.kernel.search.get_work_group_info(
-                  cl.kernel_work_group_info.WORK_GROUP_SIZE, self.device)
-
-        if self.WORKSIZE is None:
-            self.WORKSIZE = maxSize
-        else:
-            if self.WORKSIZE > maxSize:
-                self.interface.log('Warning: Worksize exceeds the maximum of '
-                                    + str(maxSize) + ', using default.')
-            if self.WORKSIZE < 1:
-                self.interface.log('Warning: Invalid worksize, using default.')
-
-            self.WORKSIZE = min(self.WORKSIZE, maxSize)
-            self.WORKSIZE = max(self.WORKSIZE, 1)
-            #if the worksize is not a power of 2, round down to the nearest one
-            if (self.WORKSIZE & (self.WORKSIZE - 1)) != 0:
-                self.WORKSIZE = 1 << int(math.floor(math.log(X)/math.log(2)))
 
     def start(self):
         """Phoenix wants the kernel to start."""
@@ -389,11 +387,7 @@ class MiningKernel(object):
     def mineThread(self):
         for data in self.qr:
             for i in range(data.iterations):
-				# added C1 + K[5]
-				# added W17_2
-				# modified Preval4 = Preval4 + T1
-				# modified T1 = T1 - state0
-   				self.kernel.search(
+                self.kernel.search(
                     self.commandQueue, (data.size, ), (self.WORKSIZE, ),
                     data.state[0], data.state[1], data.state[2], data.state[3],
                     data.state[4], data.state[5], data.state[6], data.state[7],
@@ -404,18 +398,18 @@ class MiningKernel(object):
                     data.f[1],data.f[2], data.f[5],
                     (data.f[3] + data.f[4]), (data.state[0] - data.f[4]),
                     self.output_buf)
-   				cl.enqueue_read_buffer(
+                cl.enqueue_read_buffer(
                     self.commandQueue, self.output_buf, self.output)
-   				self.commandQueue.finish()
+                self.commandQueue.finish()
 
                 # The OpenCL code will flag the last item in the output buffer when
                 # it finds a valid nonce. If that's the case, send it to the main
                 # thread for postprocessing and clean the buffer for the next pass.
-   				if self.output[self.OUTPUT_SIZE]:
-   					reactor.callFromThread(self.postprocess, self.output.copy(),
+                if self.output[self.OUTPUT_SIZE]:
+                    reactor.callFromThread(self.postprocess, self.output.copy(),
                     data.nr)
 
-   					self.output.fill(0)
-   					cl.enqueue_write_buffer(
+                    self.output.fill(0)
+                    cl.enqueue_write_buffer(
                         self.commandQueue, self.output_buf, self.output)
 

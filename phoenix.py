@@ -76,7 +76,7 @@ class CommandLineOptions(object):
             self._kernelOption(arg)
 
     def getQueueSize(self):
-        return self.parsedSettings.queuesize
+        return max(1, self.parsedSettings.queuesize)
     def getAvgSamples(self):
         return self.parsedSettings.avgsamples
 

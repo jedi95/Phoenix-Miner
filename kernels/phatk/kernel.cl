@@ -41,12 +41,11 @@ __constant ulong L = 0x198c7e2a2;
 
 #ifdef BFI_INT
 	#define Ch(x, y, z) amd_bytealign(x, y, z)
+    #define Ma(z, x, y) amd_bytealign(z^x, y, x)
 #else 
 	#define Ch(x, y, z) bitselect(z, y, x)
+    #define Ma(x, y, z) bitselect(x,y,(z^x))
 #endif
-
-// Ma now uses the Ch function, if BFI_INT is enabled, the optimized Ch version is used
-#define Ma(x, y, z) Ch((z ^ x), y, x)
 
 // Various intermediate calculations for each SHA round
 #define s0(n) (rot(Vals[(128 - n) % 8], 30) ^ rot(Vals[(128 - n) % 8], 19) ^ rot(Vals[(128 - n) % 8], 10))

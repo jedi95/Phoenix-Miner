@@ -65,7 +65,6 @@ class WorkQueue(object):
         self.currentUnit = None
         self.block = ''
         self.lastBlock = None
-        self.test = False
 
         # This is set externally. Not the best practice, but it can be changed
         # in the future.

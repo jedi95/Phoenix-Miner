@@ -44,7 +44,7 @@ class KernelData(object):
             unpack('IIII', nonceRange.unit.data[64:]), dtype=np.uint32)
 
         # get the number of iterations from the aggression and size
-        self.iterations = int((nonceRange.size / (1 << aggression)))
+        self.iterations = int(nonceRange.size / (1 << aggression))
         self.iterations = max(1, self.iterations)
 
         #set the size to pass to the kernel based on iterations and vectors
@@ -149,7 +149,7 @@ class MiningKernel(object):
     OUTPUT_SIZE = WORKSIZE
 
     # This must be manually set for Git
-    REVISION = 120
+    REVISION = 121
 
     def __init__(self, interface):
         platforms = cl.get_platforms()
@@ -239,13 +239,22 @@ class MiningKernel(object):
         #Load the kernel and initialize the device.
         self.context = cl.Context([device], None, None)
 
-        # If the user didn't specify their own worksize, use 256
+        # get the maximum worksize of the device
+        maxWorkSize = self.device.get_info(cl.device_info.MAX_WORK_GROUP_SIZE)
+
+        # If the user didn't specify their own worksize, use the maximum supported worksize of the device
         if self.WORKSIZE is None:
-            self.WORKSIZE = 256
+            self.interface.error('WORKSIZE not supplied, using HW max. of ' + str(maxWorkSize))
+            self.WORKSIZE = maxWorkSize
         else:
-            #if the worksize is not a power of 2, round down to the nearest one
+            # If the worksize is larger than the maximum supported worksize of the device
+            if (self.WORKSIZE > maxWorkSize):
+                self.interface.error('WORKSIZE out of range, using HW max. of ' + str(maxWorkSize))
+                self.WORKSIZE = maxWorkSize
+            # If the worksize is not a power of 2
             if (self.WORKSIZE & (self.WORKSIZE - 1)) != 0:
-                self.WORKSIZE = 1 << int(math.floor(math.log(X)/math.log(2)))
+                self.interface.error('WORKSIZE invalid, using HW max. of ' + str(maxWorkSize))
+                self.WORKSIZE = maxWorkSize
 
         # These definitions are required for the kernel to function.
         self.defines += (' -DOUTPUT_SIZE=' + str(self.OUTPUT_SIZE))
@@ -334,17 +343,8 @@ class MiningKernel(object):
         finally:
             if binary: binary.close()
 
+        #unload the compiler to reduce memory usage
         cl.unload_compiler()
-
-        # Since this can't be run before compiling the kernel, all we can do is
-        # check to make sure the selected size is not too large
-        maxSize = self.kernel.search.get_work_group_info(
-                  cl.kernel_work_group_info.WORK_GROUP_SIZE, self.device)
-
-        if self.WORKSIZE > maxSize:
-            self.interface.fatal('Maximum WORKSIZE on the selected device is '
-                    + str(maxSize))
-
 
     def start(self):
         #Phoenix wants the kernel to start.

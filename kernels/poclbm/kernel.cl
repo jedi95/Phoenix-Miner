@@ -47,14 +47,9 @@ __constant uint K[64] = {
 	// Ma can also be implemented in terms of BFI_INT...
 	#define Ma(x, y, z) amd_bytealign((z^x), (y), (x))
 #else
-	#define Ch(x, y, z) (z ^ (x & (y ^ z)))
-	#define Ma(x, y, z) ((x & z) | (y & (x | z)))
+	#define Ch(x, y, z) bitselect(z,y,x)
+	#define Ma(x, y, z) bitselect(x,y,(z^x))
 #endif
-
-// AMD's KernelAnalyzer throws errors compiling the kernel if we use 
-// amd_bytealign on constants with vectors enabled, so we use this to avoid 
-// problems. (this is used 4 times, and likely optimized out by the compiler.)
-#define Ma2(x, y, z) ((y & z) | (x & (y | z)))
 
 __kernel void search(	const uint state0, const uint state1, const uint state2, const uint state3,
 						const uint state4, const uint state5, const uint state6, const uint state7,
@@ -76,8 +71,8 @@ __kernel void search(	const uint state0, const uint state1, const uint state2, c
 
 	W3 = nonce + fW3;
 	E = fcty_e +  nonce; A = state0 + E; E = E + fcty_e2;
-	D = D1 + (rotr(A, 6) ^ rotr(A, 11) ^ rotr(A, 25)) + Ch(A, B1, C1) + K[ 4] +  0x80000000; H = H1 + D; D = D + (rotr(E, 2) ^ rotr(E, 13) ^ rotr(E, 22)) + Ma2(G1, E, F1);
-	C = C1 + (rotr(H, 6) ^ rotr(H, 11) ^ rotr(H, 25)) + Ch(H, A, B1) + K[ 5]; G = G1 + C; C = C + (rotr(D, 2) ^ rotr(D, 13) ^ rotr(D, 22)) + Ma2(F1, D, E);
+	D = D1 + (rotr(A, 6) ^ rotr(A, 11) ^ rotr(A, 25)) + Ch(A, B1, C1) + K[ 4] +  0x80000000; H = H1 + D; D = D + (rotr(E, 2) ^ rotr(E, 13) ^ rotr(E, 22)) + Ma(G1, E, F1);
+	C = C1 + (rotr(H, 6) ^ rotr(H, 11) ^ rotr(H, 25)) + Ch(H, A, B1) + K[ 5]; G = G1 + C; C = C + (rotr(D, 2) ^ rotr(D, 13) ^ rotr(D, 22)) + Ma(F1, D, E);
 	B = B1 + (rotr(G, 6) ^ rotr(G, 11) ^ rotr(G, 25)) + Ch(G, H, A) + K[ 6]; F = F1 + B; B = B + (rotr(C, 2) ^ rotr(C, 13) ^ rotr(C, 22)) + Ma(E, C, D);
 	A = A + (rotr(F, 6) ^ rotr(F, 11) ^ rotr(F, 25)) + Ch(F, G, H) + K[ 7]; E = E + A; A = A + (rotr(B, 2) ^ rotr(B, 13) ^ rotr(B, 22)) + Ma(D, B, C);
 	H = H + (rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25)) + Ch(E, F, G) + K[ 8]; D = D + H; H = H + (rotr(A, 2) ^ rotr(A, 13) ^ rotr(A, 22)) + Ma(C, A, B);
@@ -188,8 +183,8 @@ __kernel void search(	const uint state0, const uint state1, const uint state2, c
 	W6 = G + state6; W7 = H + state7;
 
 	H = 0xb0edbdd0 + K[ 0] +  W0; D = 0xa54ff53a + H; H = H + 0x08909ae5U;
-	G = 0x1f83d9abU + (rotr(D, 6) ^ rotr(D, 11) ^ rotr(D, 25)) + (0x9b05688cU ^ (D & 0xca0b3af3U)) + K[ 1] +  W1; C = 0x3c6ef372U + G; G = G + (rotr(H, 2) ^ rotr(H, 13) ^ rotr(H, 22)) +  Ma2(0xbb67ae85U, H, 0x6a09e667U);
-	F = 0x9b05688cU + (rotr(C, 6) ^ rotr(C, 11) ^ rotr(C, 25)) + Ch(C, D, 0x510e527fU) + K[ 2] +  W2; B = 0xbb67ae85U + F; F = F + (rotr(G, 2) ^ rotr(G, 13) ^ rotr(G, 22)) + Ma2(0x6a09e667U, G, H);
+	G = 0x1f83d9abU + (rotr(D, 6) ^ rotr(D, 11) ^ rotr(D, 25)) + (0x9b05688cU ^ (D & 0xca0b3af3U)) + K[ 1] +  W1; C = 0x3c6ef372U + G; G = G + (rotr(H, 2) ^ rotr(H, 13) ^ rotr(H, 22)) +  Ma(0xbb67ae85U, H, 0x6a09e667U);
+	F = 0x9b05688cU + (rotr(C, 6) ^ rotr(C, 11) ^ rotr(C, 25)) + Ch(C, D, 0x510e527fU) + K[ 2] +  W2; B = 0xbb67ae85U + F; F = F + (rotr(G, 2) ^ rotr(G, 13) ^ rotr(G, 22)) + Ma(0x6a09e667U, G, H);
 	E = 0x510e527fU + (rotr(B, 6) ^ rotr(B, 11) ^ rotr(B, 25)) + Ch(B, C, D) + K[ 3] +  W3; A = 0x6a09e667U + E; E = E + (rotr(F, 2) ^ rotr(F, 13) ^ rotr(F, 22)) + Ma(H, F, G);
 	D = D + (rotr(A, 6) ^ rotr(A, 11) ^ rotr(A, 25)) + Ch(A, B, C) + K[ 4] +  W4; H = H + D; D = D + (rotr(E, 2) ^ rotr(E, 13) ^ rotr(E, 22)) + Ma(G, E, F);
 	C = C + (rotr(H, 6) ^ rotr(H, 11) ^ rotr(H, 25)) + Ch(H, A, B) + K[ 5] +  W5; G = G + C; C = C + (rotr(D, 2) ^ rotr(D, 13) ^ rotr(D, 22)) + Ma(F, D, E);

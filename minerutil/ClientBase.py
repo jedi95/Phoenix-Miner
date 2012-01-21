@@ -27,6 +27,7 @@ class AssignedWork(object):
     target = None
     maxtime = None
     time = None
+    identifier = None
     def setMaxTimeIncrement(self, n):
         self.time = n
         self.maxtime = struct.unpack('>I', self.data[68:72])[0] + n

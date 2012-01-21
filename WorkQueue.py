@@ -94,12 +94,12 @@ class WorkQueue(object):
         work.base = 0
 
         #check if there is a new block, if so reset queue
-        newBlock = (wu.data[4:36] != self.block)
+        newBlock = (wu.identifier != self.block)
         if newBlock:
             self.queue.clear()
             self.currentUnit = None
             self.lastBlock = self.block
-            self.block = wu.data[4:36]
+            self.block = wu.identifier
             self.logger.reportDebug("New block (WorkQueue)")
 
         #clear the idle flag since we just added work to queue

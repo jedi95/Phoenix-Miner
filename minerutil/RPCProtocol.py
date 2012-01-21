@@ -180,7 +180,8 @@ class RPCPoller(HTTPBase):
             {
                 'Authorization': self.root.auth,
                 'User-Agent': self.root.version,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-Work-Identifier': '1'
             })
 
         (headers, data) = response
@@ -206,10 +207,10 @@ class LongPoller(HTTPBase):
     callback function.
     """
 
-    #Changed to 1800, since 600 seconds will cause it to reconnect
+    #Changed to 3600, since 600 seconds will cause it to reconnect
     #once every 10 minutes. Most pools will not cancel a long poll if the block
-    #exceeds 10 minutes. 30 minutes should be a sane value for this.
-    timeout = 1800
+    #exceeds 10 minutes. 60 minutes should be a sane value for this.
+    timeout = 3600
 
     def __init__(self, url, root):
         self.url = url
@@ -235,7 +236,8 @@ class LongPoller(HTTPBase):
                 None,
                 {
                     'Authorization': self.root.auth,
-                    'User-Agent': self.root.version
+                    'User-Agent': self.root.version,
+                    'X-Work-Identifier': '1'
                 })
             d.addBoth(self._requestComplete)
 
@@ -425,6 +427,7 @@ class RPCClient(ClientBase):
         aw.target = work['target'].decode('hex')
         aw.mask = work.get('mask', 32)
         aw.setMaxTimeIncrement(maxtime)
+        aw.identifier = work.get('identifier', aw.data[4:36])
         if pushed:
             self.runCallback('push', aw)
         self.runCallback('work', aw)

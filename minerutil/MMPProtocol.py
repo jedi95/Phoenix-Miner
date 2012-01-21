@@ -143,6 +143,7 @@ class MMPClientProtocol(MMPProtocolBase, ClientBase):
         wu.mask = mask
         wu.target = self.target
         wu.setMaxTimeIncrement(self.time)
+        wu.identifier = data[4:36]
         self.runCallback('work', wu)
         # Since the server is giving work, we know it has accepted our
         # login details, so we can reset the factory's reconnect delay.

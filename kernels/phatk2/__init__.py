@@ -216,7 +216,7 @@ class MiningKernel(object):
         try:
             self.loadKernel(self.device)
         except Exception:
-            self.interface.fatal("Failed to load OpenCL kernel!")
+            self.interface.fatal('Failed to load OpenCL kernel!')
             return
 
         # Initialize a command queue to send commands to the device, and a
@@ -242,18 +242,18 @@ class MiningKernel(object):
         # get the maximum worksize of the device
         maxWorkSize = self.device.get_info(cl.device_info.MAX_WORK_GROUP_SIZE)
 
-        # If the user didn't specify their own worksize, use the maximum supported worksize of the device
+        # If the user didn't specify their own worksize,
+        # use the maximum supported worksize of the device
         if self.WORKSIZE is None:
-            self.interface.error('WORKSIZE not supplied, using HW max. of ' + str(maxWorkSize))
+            self.interface.debug('WORKSIZE not supplied, using HW max. of '
+                                 + str(maxWorkSize))
             self.WORKSIZE = maxWorkSize
         else:
-            # If the worksize is larger than the maximum supported worksize of the device
+            # If the worksize is larger than the maximum supported
+            # worksize of the device
             if (self.WORKSIZE > maxWorkSize):
-                self.interface.error('WORKSIZE out of range, using HW max. of ' + str(maxWorkSize))
-                self.WORKSIZE = maxWorkSize
-            # If the worksize is not a power of 2
-            if (self.WORKSIZE & (self.WORKSIZE - 1)) != 0:
-                self.interface.error('WORKSIZE invalid, using HW max. of ' + str(maxWorkSize))
+                self.interface.error('WORKSIZE out of range, using HW max. of '
+                                     + str(maxWorkSize))
                 self.WORKSIZE = maxWorkSize
 
         # These definitions are required for the kernel to function.
@@ -317,7 +317,7 @@ class MiningKernel(object):
                     patcher = BFIPatcher(self.interface)
                     binaryData = patcher.patch(self.kernel.binaries[0])
 
-                    self.interface.debug("Applied BFI_INT patch")
+                    self.interface.debug('Applied BFI_INT patch')
 
                     #reload the kernel with the patched binary
                     self.kernel = cl.Program(
@@ -334,7 +334,7 @@ class MiningKernel(object):
                     self.context, [device], [binaryData]).build(self.defines)
 
         except cl.LogicError:
-            self.interface.fatal("Failed to compile OpenCL kernel!")
+            self.interface.fatal('Failed to compile OpenCL kernel!')
             return
         except PatchError:
             self.interface.fatal('Failed to apply BFI_INT patch to kernel! '

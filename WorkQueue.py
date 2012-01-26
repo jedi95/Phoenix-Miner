@@ -32,7 +32,7 @@ class WorkUnit(object):
     midstate = None
     nonces = None
     base = None
-    work = None
+    identifier = None
 
 """A NonceRange is a range of nonces from a WorkUnit, to be dispatched in a
 single execution of a mining kernel. The size of the NonceRange can be
@@ -72,12 +72,12 @@ class WorkQueue(object):
 
     # Called by foundNonce to check if a NonceRange is stale before submitting
     def isRangeStale(self, nr):
-        return (nr.unit.data[4:36] != self.block)
+        return (nr.unit.identifier != self.block)
 
-    def storeWork(self, wu):
+    def storeWork(self, aw):
 
         #check if this work matches the previous block
-        if self.lastBlock is not None and (wu.data[4:36] == self.lastBlock):
+        if self.lastBlock is not None and (aw.identifier == self.lastBlock):
             self.logger.reportDebug('Server gave work from the previous '
                                     'block, ignoring.')
             #if the queue is too short request more work
@@ -87,19 +87,20 @@ class WorkQueue(object):
 
         #create a WorkUnit
         work = WorkUnit()
-        work.data = wu.data
-        work.target = wu.target
+        work.data = aw.data
+        work.target = aw.target
         work.midstate = calculateMidstate(work.data[:64])
-        work.nonces = 2 ** wu.mask
+        work.nonces = 2 ** aw.mask
         work.base = 0
+        work.identifier = aw.identifier
 
         #check if there is a new block, if so reset queue
-        newBlock = (wu.identifier != self.block)
+        newBlock = (aw.identifier != self.block)
         if newBlock:
             self.queue.clear()
             self.currentUnit = None
             self.lastBlock = self.block
-            self.block = wu.identifier
+            self.block = aw.identifier
             self.logger.reportDebug("New block (WorkQueue)")
 
         #clear the idle flag since we just added work to queue

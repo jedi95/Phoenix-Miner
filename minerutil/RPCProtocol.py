@@ -394,7 +394,7 @@ class RPCClient(ClientBase):
             rollntime = None
 
         if rollntime:
-            if rollntime.lower().startswith('expires='):
+            if rollntime.lower().startswith('expire='):
                 try:
                     maxtime = int(rollntime[8:])
                 except:
